@@ -1,6 +1,12 @@
 use actix_web::{dev::Server, web, App, HttpResponse, HttpServer};
 use std::net::TcpListener;
 
+#[derive(serde::Deserialize, Debug)]
+struct FormData {
+    email: String,
+    name: String,
+}
+
 ///
 /// Health check endpoint, returns an empty 200 OK.
 /// This endpoint is used to poll the application with services like insights/ pingdom to ensure that the application is running for monitoring.
@@ -12,7 +18,8 @@ async fn health_check() -> HttpResponse {
 ///
 /// Subscribe method which will take in POST'ed request body, extract user's email and name, save to db, and return a 200 back to client
 ///
-async fn subscribe() -> HttpResponse {
+async fn subscribe(form: web::Form<FormData>) -> HttpResponse {
+    println!("{:?}", form);
     HttpResponse::Ok().finish()
 }
 
