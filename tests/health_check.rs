@@ -1,7 +1,7 @@
 use rstest::*;
 use std::net::TcpListener;
 
-use zero_to_production::run;
+use zero_to_production::startup::run;
 
 fn spawn_app() -> String {
     let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind port");
@@ -30,15 +30,16 @@ async fn health_check_coverage() {
     assert!(response.status().is_success());
     assert_eq!(Some(0), response.content_length())
 }
-
+#[rstest]
+#[case("name=le%20guin&email=ursula_le_guin%40gmail.com")]
+#[case("name=leguin&email=ursula_le_guin%40gmail.com")]
 #[tokio::test]
-async fn subscribe_returns_a_200_for_valid_form_data() {
+async fn subscribe_returns_a_200_for_valid_form_data(#[case] body: String) {
     // Arrange
     let address = spawn_app();
     let client = reqwest::Client::new();
 
     // Act
-    let body = String::from("name=le%20guin&email=ursula_le_guin%40gmail.com");
     let response = client
         .post(format!("{}/subscriptions", &address))
         .header("Content-Type", "application/x-www-form-urlencoded")
