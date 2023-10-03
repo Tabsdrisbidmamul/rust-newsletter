@@ -6,3 +6,6 @@ CREATE TABLE subscriptions(
   name TEXT NOT NULL,
   subscribed_at timestamptz NOT NULL
 );
+
+INSERT INTO subscriptions
+VALUES(gen_random_uuid(), 'test@test.com', 'test', '2023-09-30T14:05:00.000Z');
