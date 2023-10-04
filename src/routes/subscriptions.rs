@@ -1,5 +1,6 @@
 use actix_web::{web, HttpResponse};
 use chrono::Utc;
+use log::{error, info};
 use sqlx::{query, PgPool};
 use uuid::Uuid;
 
@@ -13,7 +14,7 @@ pub struct FormData {
 /// Subscribe method which will take in POST'ed request body, extract user's email and name, save to db, and return a 200 back to client
 ///
 pub async fn subscribe(form: web::Form<FormData>, db_pool: web::Data<PgPool>) -> HttpResponse {
-    println!("email: {}; name: {}", form.email, form.name);
+    info!("email: {}; name: {}", form.email, form.name);
     match query!(
         r#"
       INSERT INTO subscriptions (id, email, name, subscribed_at)
@@ -29,7 +30,7 @@ pub async fn subscribe(form: web::Form<FormData>, db_pool: web::Data<PgPool>) ->
     {
         Ok(_) => HttpResponse::Created().finish(),
         Err(e) => {
-            println!("failed to execute query {}", e);
+            error!("failed to execute query {}", e);
             HttpResponse::InternalServerError().finish()
         }
     }
