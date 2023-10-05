@@ -1,6 +1,5 @@
 use actix_web::{web, HttpResponse};
 use chrono::Utc;
-use log::{error, info};
 use sqlx::{query, PgPool};
 use uuid::Uuid;
 
@@ -14,7 +13,29 @@ pub struct FormData {
 /// Subscribe method which will take in POST'ed request body, extract user's email and name, save to db, and return a 200 back to client
 ///
 pub async fn subscribe(form: web::Form<FormData>, db_pool: web::Data<PgPool>) -> HttpResponse {
-    info!("email: {}; name: {}", form.email, form.name);
+    let request_id = Uuid::new_v4();
+
+    let request_span = tracing::info_span!(
+      "Adding a new subscriber",
+      %request_id,
+      subscriber_email = %form.email,
+      subscriber_name = %form.name
+    );
+
+    let _request_span_guard = request_span.enter();
+
+    tracing::info!(
+        "request_id {}: Adding '{}' '{}' as a new subscriber",
+        request_id,
+        form.email,
+        form.name
+    );
+
+    tracing::info!(
+        "request_id {}: Saving new subscriber details in the database",
+        request_id
+    );
+
     match query!(
         r#"
       INSERT INTO subscriptions (id, email, name, subscribed_at)
@@ -28,9 +49,15 @@ pub async fn subscribe(form: web::Form<FormData>, db_pool: web::Data<PgPool>) ->
     .execute(db_pool.get_ref())
     .await
     {
-        Ok(_) => HttpResponse::Created().finish(),
+        Ok(_) => {
+            tracing::info!(
+                "request_id {}: New subscriber details have been saved",
+                request_id
+            );
+            HttpResponse::Created().finish()
+        }
         Err(e) => {
-            error!("failed to execute query {}", e);
+            tracing::error!("request_id {}: failed to execute query {:?}", request_id, e);
             HttpResponse::InternalServerError().finish()
         }
     }
