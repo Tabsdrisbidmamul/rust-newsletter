@@ -87,7 +87,7 @@ async fn health_check_coverage() {
 
     // Act
     let response = client
-        .get(format!("{}/health-check", app.address))
+        .get(format!("{}/health_check", app.address))
         .send()
         .await
         .expect("Failed to execute request.");
