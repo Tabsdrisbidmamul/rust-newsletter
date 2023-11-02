@@ -134,6 +134,7 @@ async fn subscribe_returns_a_201_for_valid_form_data(#[case] name: String, #[cas
 #[case("name=le%20guin", "missing the email")]
 #[case("email=ursula_le_guin%40gmail.com", "missing the name")]
 #[case("", "missing both name and email")]
+#[case("email=&name=", "missing both name and email")]
 #[tokio::test]
 async fn subscribe_returns_a_400_when_data_is_missing(
     #[case] invalid_body: String,
