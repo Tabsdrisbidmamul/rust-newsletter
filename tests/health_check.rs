@@ -134,11 +134,11 @@ async fn subscribe_returns_a_201_for_valid_form_data(#[case] name: String, #[cas
 #[case("name=le%20guin", "missing the email")]
 #[case("email=ursula_le_guin%40gmail.com", "missing the name")]
 #[case("", "missing both name and email")]
-#[case("email=&name=", "missing both name and email")]
+#[case("email=&name=", "empty name and email values")]
 #[tokio::test]
 async fn subscribe_returns_a_400_when_data_is_missing(
     #[case] invalid_body: String,
-    #[case] error_message: String,
+    #[case] description: String,
 ) {
     // Arrange
     let app = spawn_app().await;
@@ -158,6 +158,35 @@ async fn subscribe_returns_a_400_when_data_is_missing(
         400,
         response.status().as_u16(),
         "The API did not fail with 400 Bad Request when the payload was {}",
-        error_message
+        description
+    )
+}
+
+#[rstest]
+#[case("email=&name=", "empty name and email values")]
+#[tokio::test]
+async fn subscribe_returns_a_400_when_field_is_present_but_invalid(
+    #[case] invalid_body: String,
+    #[case] description: String,
+) {
+    // Arrange
+    let app = spawn_app().await;
+    let client = reqwest::Client::new();
+
+    // Act
+    let response = client
+        .post(format!("{}/subscriptions", &app.address))
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body(invalid_body)
+        .send()
+        .await
+        .expect("Failed to execute request.");
+
+    // Assert
+    assert_eq!(
+        400,
+        response.status().as_u16(),
+        "The API did not fail with 400 Bad Request when the payload was {}",
+        description
     )
 }
