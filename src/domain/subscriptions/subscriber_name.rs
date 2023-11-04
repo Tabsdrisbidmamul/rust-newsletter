@@ -27,10 +27,10 @@ impl SubscriberName {
         let contains_forbidden_characters = s.chars().any(|c| forbidden_characters.contains(&c));
 
         if is_empty_or_whitespace || is_too_long || contains_forbidden_characters {
-            Err(format!("{} is not a valid subscriber name.", s))
-        } else {
-            Ok(Self(s))
+            return Err(format!("{} is not a valid subscriber name.", s));
         }
+
+        Ok(Self(s))
     }
 
     ///
@@ -50,7 +50,7 @@ impl SubscriberName {
 
 #[cfg(test)]
 mod tests {
-    use crate::domain::SubscriberName;
+    use super::SubscriberName;
     use claims::{assert_err, assert_ok};
 
     #[test]
@@ -84,7 +84,7 @@ mod tests {
     }
     #[test]
     fn a_valid_name_is_parsed_successfully() {
-        let name = "Ursula Le Guin".to_string();
+        let name = "Lorem ipsum".to_string();
         assert_ok!(SubscriberName::parse(name));
     }
 }
