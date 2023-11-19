@@ -10,6 +10,9 @@ impl AsRef<str> for SubscriberEmail {
 }
 
 impl SubscriberEmail {
+    ///
+    /// Parse sting to check if its a valid email
+    ///
     pub fn parse(s: String) -> Result<SubscriberEmail, String> {
         if !validate_email(&s) {
             return Err(format!("{} is not a valid a subscriber email.", s));

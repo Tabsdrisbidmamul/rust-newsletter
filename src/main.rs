@@ -3,6 +3,7 @@ use std::net::TcpListener;
 
 use zero_to_production::{
     configuration::get_configuration,
+    email_client::EmailClient,
     startup::run,
     telemetry::{get_subscriber, init_subscriber},
 };
@@ -17,9 +18,15 @@ async fn main() -> Result<(), std::io::Error> {
         .acquire_timeout(std::time::Duration::from_secs(2))
         .connect_lazy_with(config.database.without_db());
 
+    let sender_email = config
+        .email_client
+        .sender()
+        .expect("Invalid sender email address.");
+    let email_client = EmailClient::new(config.email_client.base_url, sender_email);
+
     let address = format!("{}:{}", config.application.host, config.application.port);
     let listener = TcpListener::bind(address).expect("Failed to bind port");
 
     println!("listening on {:?}", listener.local_addr().unwrap());
-    run(listener, connection_pool)?.await
+    run(listener, connection_pool, email_client)?.await
 }

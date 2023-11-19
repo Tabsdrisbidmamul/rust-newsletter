@@ -30,10 +30,10 @@ secrecy = { version = "0.8", features = ["serde"] }
 serde-aux = "4"
 unicode-segmentation = "1"
 validator = "0.16"
+reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
 
 [dev-dependencies]
 rstest = "0.18.2"
-reqwest = { version = "0.11", features = ["json"] }
 async-std = { version = "1.5", features = ["attributes"] }
 once_cell = "1"
 claims = "0.7"
