@@ -44,10 +44,13 @@ async fn spawn_app() -> TestApp {
         .base_url_transformed()
         .expect("Invalid base url");
     let sender_email = config.email_client.sender().expect("Invalid sender email");
+    let timeout = config.email_client.timeout();
+
     let email_client = EmailClient::new(
         base_url,
         sender_email,
         config.email_client.authroisatation_token,
+        timeout,
     );
 
     // clear table for testing

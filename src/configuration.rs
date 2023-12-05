@@ -21,6 +21,7 @@ pub struct EmailClientSettings {
     pub base_url: String,
     pub sender_email: String,
     pub authroisatation_token: Secret<String>,
+    pub timeout_milliseconds: u64,
 }
 
 impl EmailClientSettings {
@@ -33,6 +34,10 @@ impl EmailClientSettings {
             Ok(url) => Ok(url),
             Err(_) => Err("Failed to parse base url".to_string()),
         }
+    }
+
+    pub fn timeout(&self) -> std::time::Duration {
+        std::time::Duration::from_millis(self.timeout_milliseconds)
     }
 }
 

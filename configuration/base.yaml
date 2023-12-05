@@ -12,3 +12,4 @@ email_client:
   # Use the single sender email you authorised on Postmark!
   sender_email: 'idris.khan@howdens.com'
   authroisatation_token: f0f76fd9-6d39-4879-9577-72a6d02c75eb
+  timeout_milliseconds: 10000
