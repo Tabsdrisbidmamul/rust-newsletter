@@ -6,6 +6,7 @@ use uuid::Uuid;
 
 use zero_to_production::{
     configuration::{get_configuration, DatabaseSettings},
+    email_client::EmailClient,
     startup::run,
     telemetry::{get_subscriber, init_subscriber},
 };
@@ -38,13 +39,24 @@ async fn spawn_app() -> TestApp {
     let config = get_configuration().expect("Failed to get configuration.");
     let db_pool = configure_database(&config.database).await;
 
+    let base_url = config
+        .email_client
+        .base_url_transformed()
+        .expect("Invalid base url");
+    let sender_email = config.email_client.sender().expect("Invalid sender email");
+    let email_client = EmailClient::new(
+        base_url,
+        sender_email,
+        config.email_client.authroisatation_token,
+    );
+
     // clear table for testing
     query!("DELETE FROM subscriptions")
         .execute(&db_pool)
         .await
         .expect("Failed to clear table");
 
-    let server = run(listener, db_pool.clone()).expect("Failed to bind address");
+    let server = run(listener, db_pool.clone(), email_client).expect("Failed to bind address");
     let _ = tokio::spawn(server);
 
     TestApp { address, db_pool }

@@ -1,4 +1,5 @@
 use config::{Config, ConfigError, File};
+use reqwest::Url;
 use secrecy::{ExposeSecret, Secret};
 use serde::Deserialize;
 use serde_aux::field_attributes::deserialize_number_from_string;
@@ -19,11 +20,19 @@ pub struct Settings {
 pub struct EmailClientSettings {
     pub base_url: String,
     pub sender_email: String,
+    pub authroisatation_token: Secret<String>,
 }
 
 impl EmailClientSettings {
     pub fn sender(&self) -> Result<SubscriberEmail, String> {
         SubscriberEmail::parse(self.sender_email.clone())
+    }
+
+    pub fn base_url_transformed(&self) -> Result<Url, String> {
+        match Url::parse(self.base_url.as_str()) {
+            Ok(url) => Ok(url),
+            Err(_) => Err("Failed to parse base url".to_string()),
+        }
     }
 }
 

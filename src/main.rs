@@ -18,11 +18,21 @@ async fn main() -> Result<(), std::io::Error> {
         .acquire_timeout(std::time::Duration::from_secs(2))
         .connect_lazy_with(config.database.without_db());
 
+    let base_url = config
+        .email_client
+        .base_url_transformed()
+        .expect("Invalid base url");
+
     let sender_email = config
         .email_client
         .sender()
         .expect("Invalid sender email address.");
-    let email_client = EmailClient::new(config.email_client.base_url, sender_email);
+
+    let email_client = EmailClient::new(
+        base_url,
+        sender_email,
+        config.email_client.authroisatation_token,
+    );
 
     let address = format!("{}:{}", config.application.host, config.application.port);
     let listener = TcpListener::bind(address).expect("Failed to bind port");
