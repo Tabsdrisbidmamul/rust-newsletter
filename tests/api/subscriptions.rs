@@ -1,7 +1,9 @@
 use rstest::rstest;
 use sqlx::query;
+use wiremock::matchers::{method, path};
+use wiremock::{Mock, ResponseTemplate};
 
-use crate::helpers::spawn_app;
+use crate::helpers::{format_body, spawn_app};
 
 #[rstest]
 #[case("le guin", "guin@email.com")]
@@ -12,9 +14,7 @@ async fn subscribe_returns_a_201_for_valid_form_data(#[case] name: String, #[cas
     let app = spawn_app().await;
 
     // Act
-    let _name = str::replace(&name, " ", "%20");
-    let _email = str::replace(&email, "@", "%40");
-    let body = format!("name={}&email={}", _name, _email);
+    let body = format_body(&name, &email);
 
     let response = app.post_subscriptions(body).await;
 
@@ -77,4 +77,26 @@ async fn subscribe_returns_a_400_when_field_is_present_but_invalid(
         "The API did not fail with 400 Bad Request when the payload was {}",
         description
     )
+}
+
+#[rstest]
+#[case("le guin", "email=le_guin@email.com")]
+#[tokio::test]
+async fn subscribe_sends_a_confirmation_email_for_valid_data(
+    #[case] name: String,
+    #[case] email: String,
+) {
+    // Arrange
+    let app = spawn_app().await;
+    let body = format_body(&name, &email);
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
+
+    // Act
+    app.post_subscriptions(body).await;
 }
