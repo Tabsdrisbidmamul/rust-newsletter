@@ -9,19 +9,42 @@ use sqlx::ConnectOptions;
 
 use crate::domain::SubscriberEmail;
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
     pub email_client: EmailClientSettings,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Clone, serde::Deserialize)]
 pub struct EmailClientSettings {
     pub base_url: String,
     pub sender_email: String,
     pub authroisatation_token: Secret<String>,
     pub timeout_milliseconds: u64,
+}
+
+#[derive(Clone, Deserialize)]
+pub struct ApplicationSettings {
+    #[serde(deserialize_with = "deserialize_number_from_string")]
+    pub port: u16,
+    pub host: String,
+}
+
+#[derive(Clone, Deserialize)]
+pub struct DatabaseSettings {
+    pub username: String,
+    pub password: Secret<String>,
+    #[serde(deserialize_with = "deserialize_number_from_string")]
+    pub port: u16,
+    pub host: String,
+    pub database_name: String,
+    pub require_ssl: bool,
+}
+
+pub enum Environment {
+    Local,
+    Production,
 }
 
 impl EmailClientSettings {
@@ -39,29 +62,6 @@ impl EmailClientSettings {
     pub fn timeout(&self) -> std::time::Duration {
         std::time::Duration::from_millis(self.timeout_milliseconds)
     }
-}
-
-#[derive(Deserialize)]
-pub struct ApplicationSettings {
-    #[serde(deserialize_with = "deserialize_number_from_string")]
-    pub port: u16,
-    pub host: String,
-}
-
-#[derive(Deserialize)]
-pub struct DatabaseSettings {
-    pub username: String,
-    pub password: Secret<String>,
-    #[serde(deserialize_with = "deserialize_number_from_string")]
-    pub port: u16,
-    pub host: String,
-    pub database_name: String,
-    pub require_ssl: bool,
-}
-
-pub enum Environment {
-    Local,
-    Production,
 }
 
 impl DatabaseSettings {
