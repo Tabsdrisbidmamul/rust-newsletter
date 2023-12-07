@@ -23,6 +23,26 @@ pub struct TestApp {
     pub db_pool: PgPool,
 }
 
+impl TestApp {
+    pub async fn get_health_check(&self) -> reqwest::Response {
+        reqwest::Client::new()
+            .get(format!("{}/health_check", &self.address))
+            .send()
+            .await
+            .expect("Failed to execute request.")
+    }
+
+    pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
+        reqwest::Client::new()
+            .post(format!("{}/subscriptions", &self.address))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(body)
+            .send()
+            .await
+            .expect("Failed to execute request.")
+    }
+}
+
 pub async fn spawn_app() -> TestApp {
     Lazy::force(&TRACING);
 

@@ -10,20 +10,13 @@ use crate::helpers::spawn_app;
 async fn subscribe_returns_a_201_for_valid_form_data(#[case] name: String, #[case] email: String) {
     // Arrange
     let app = spawn_app().await;
-    let client = reqwest::Client::new();
 
     // Act
     let _name = str::replace(&name, " ", "%20");
     let _email = str::replace(&email, "@", "%40");
     let body = format!("name={}&email={}", _name, _email);
 
-    let response = client
-        .post(format!("{}/subscriptions", &app.address))
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(body)
-        .send()
-        .await
-        .expect("Failed to execute request.");
+    let response = app.post_subscriptions(body).await;
 
     let saved = query!(
         "SELECT email, name FROM subscriptions WHERE email = $1",
@@ -51,16 +44,9 @@ async fn subscribe_returns_a_400_when_data_is_missing(
 ) {
     // Arrange
     let app = spawn_app().await;
-    let client = reqwest::Client::new();
 
     // Act
-    let response = client
-        .post(format!("{}/subscriptions", &app.address))
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(invalid_body)
-        .send()
-        .await
-        .expect("Failed to execute request.");
+    let response = app.post_subscriptions(invalid_body).await;
 
     // Assert
     assert_eq!(
@@ -80,16 +66,9 @@ async fn subscribe_returns_a_400_when_field_is_present_but_invalid(
 ) {
     // Arrange
     let app = spawn_app().await;
-    let client = reqwest::Client::new();
 
     // Act
-    let response = client
-        .post(format!("{}/subscriptions", &app.address))
-        .header("Content-Type", "application/x-www-form-urlencoded")
-        .body(invalid_body)
-        .send()
-        .await
-        .expect("Failed to execute request.");
+    let response = app.post_subscriptions(invalid_body).await;
 
     // Assert
     assert_eq!(
