@@ -9,7 +9,7 @@ use crate::helpers::{format_body, spawn_app};
 #[case("le guin", "guin@email.com")]
 #[case("ursula", "ursula_le_guin@gmail.com")]
 #[tokio::test]
-async fn subscribe_returns_a_201_for_valid_form_data(#[case] name: String, #[case] email: String) {
+async fn subscribe_returns_a_200_for_valid_form_data(#[case] name: String, #[case] email: String) {
     // Arrange
     let app = spawn_app().await;
 
@@ -23,8 +23,30 @@ async fn subscribe_returns_a_201_for_valid_form_data(#[case] name: String, #[cas
 
     let response = app.post_subscriptions(body).await;
 
+    // Assert
+    assert_eq!(200, response.status().as_u16());
+}
+
+#[rstest]
+#[case("le guin", "guin@email.com")]
+#[case("ursula", "ursula_le_guin@gmail.com")]
+#[tokio::test]
+async fn subscribe_persists_the_new_subscriber(#[case] name: String, #[case] email: String) {
+    // Arrange
+    let app = spawn_app().await;
+
+    // Act
+    let body = format_body(&name, &email);
+    Mock::given(path("email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&app.email_server)
+        .await;
+
+    app.post_subscriptions(body).await;
+
     let saved = query!(
-        "SELECT email, name FROM subscriptions WHERE email = $1",
+        "SELECT email, name, status FROM subscriptions WHERE email = $1",
         email
     )
     .fetch_one(&app.db_pool)
@@ -32,9 +54,9 @@ async fn subscribe_returns_a_201_for_valid_form_data(#[case] name: String, #[cas
     .expect("Failed to fetch saved subscription.");
 
     // Assert
-    assert_eq!(201, response.status().as_u16());
     assert_eq!(saved.name, name);
     assert_eq!(saved.email, email);
+    assert_eq!(saved.status, "pending_confirmation")
 }
 
 #[rstest]

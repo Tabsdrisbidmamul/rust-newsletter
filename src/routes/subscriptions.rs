@@ -53,7 +53,7 @@ pub async fn subscribe(
     }
 
     match insert_subscriber(db_pool.get_ref(), &new_subscriber).await {
-        Ok(_) => HttpResponse::Created().finish(),
+        Ok(_) => HttpResponse::Ok().finish(),
         Err(_) => HttpResponse::InternalServerError().finish(),
     }
 }
@@ -102,7 +102,7 @@ async fn insert_subscriber(
     query!(
         r#"
   INSERT INTO subscriptions (id, email, name, subscribed_at, status)
-  VALUES ($1, $2, $3, $4, 'confirmed')
+  VALUES ($1, $2, $3, $4, 'pending_confirmation')
   "#,
         Uuid::new_v4(),
         new_subscriber.email.as_ref(),
