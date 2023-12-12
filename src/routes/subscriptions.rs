@@ -3,7 +3,10 @@ use chrono::Utc;
 use sqlx::{query, PgPool};
 use uuid::Uuid;
 
-use crate::domain::{NewSubscriber, SubscriberEmail, SubscriberName};
+use crate::{
+    domain::{NewSubscriber, SubscriberEmail, SubscriberName},
+    email_client::EmailClient,
+};
 
 #[derive(serde::Deserialize, Debug)]
 pub struct FormData {
@@ -23,7 +26,7 @@ impl TryFrom<FormData> for NewSubscriber {
 
 #[tracing::instrument(
   name = "Adding a new subscriber",
-  skip(form, db_pool),
+  skip(form, db_pool, email_client),
   fields(
       subscriber_email = %form.email,
       subscriber_name = %form.name
@@ -32,11 +35,28 @@ impl TryFrom<FormData> for NewSubscriber {
 ///
 /// Subscribe method which will take in POST'ed request body, extract user's email and name, save to db, and return a 200 back to client
 ///
-pub async fn subscribe(form: web::Form<FormData>, db_pool: web::Data<PgPool>) -> HttpResponse {
-    let new_subscriber = match form.0.try_into() {
+pub async fn subscribe(
+    form: web::Form<FormData>,
+    db_pool: web::Data<PgPool>,
+    email_client: web::Data<EmailClient>,
+) -> HttpResponse {
+    let new_subscriber: NewSubscriber = match form.0.try_into() {
         Ok(subscriber) => subscriber,
         Err(_) => return HttpResponse::BadRequest().finish(),
     };
+
+    if email_client
+        .send_email(
+            &new_subscriber.email,
+            "Welcome!",
+            "Welcome to our newsletter!",
+            "Welcome to our newsletter!",
+        )
+        .await
+        .is_err()
+    {
+        return HttpResponse::InternalServerError().finish();
+    }
 
     match insert_subscriber(db_pool.get_ref(), &new_subscriber).await {
         Ok(_) => HttpResponse::Created().finish(),
