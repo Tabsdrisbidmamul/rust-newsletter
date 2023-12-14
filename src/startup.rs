@@ -4,6 +4,7 @@ use crate::{
     routes::{confirm, health_check, subscribe},
 };
 use actix_web::{dev::Server, web, App, HttpServer};
+use reqwest::Url;
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use std::net::TcpListener;
 use tracing_actix_web::TracingLogger;
@@ -17,10 +18,12 @@ impl Application {
     pub async fn build(config: Settings) -> Result<Self, std::io::Error> {
         let connection_pool = get_connection_pool(&config.database);
 
-        let base_url = config
+        let app_base_url = config.application.base_url().expect("Invalid app base url");
+
+        let email_base_url = config
             .email_client
             .base_url_transformed()
-            .expect("Invalid base url");
+            .expect("Invalid email base url");
 
         let sender_email = config
             .email_client
@@ -30,7 +33,7 @@ impl Application {
         let timeout = config.email_client.timeout();
 
         let email_client = EmailClient::new(
-            base_url,
+            email_base_url,
             sender_email,
             config.email_client.authroisatation_token,
             timeout,
@@ -41,7 +44,7 @@ impl Application {
         let port = listener.local_addr().unwrap().port();
 
         println!("listening on {:?}", listener.local_addr().unwrap());
-        let server = run(listener, connection_pool, email_client)?;
+        let server = run(listener, connection_pool, email_client, app_base_url)?;
 
         Ok(Self { port, server })
     }
@@ -55,6 +58,8 @@ impl Application {
     }
 }
 
+pub struct ApplicationBaseUrl(pub Url);
+
 ///
 /// Main app entry to web server.
 /// Will instantiate a new Server listening onto port 8000, this is only executed (lazy) when its awaited.
@@ -63,9 +68,11 @@ pub fn run(
     listener: TcpListener,
     db_pool: PgPool,
     email_client: EmailClient,
+    base_url: Url,
 ) -> Result<Server, std::io::Error> {
     let db_pool = web::Data::new(db_pool);
     let email_client = web::Data::new(email_client);
+    let app_base_url = web::Data::new(ApplicationBaseUrl(base_url));
 
     let server = HttpServer::new(move || {
         App::new()
@@ -75,6 +82,7 @@ pub fn run(
             .route("/subscriptions/confirm", web::get().to(confirm))
             .app_data(db_pool.clone())
             .app_data(email_client.clone())
+            .app_data(app_base_url.clone())
     })
     .listen(listener)?
     .run();

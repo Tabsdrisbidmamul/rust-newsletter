@@ -1,11 +1,13 @@
 use actix_web::{web, HttpResponse};
 use chrono::Utc;
+use reqwest::Url;
 use sqlx::{query, PgPool};
 use uuid::Uuid;
 
 use crate::{
     domain::{NewSubscriber, SubscriberEmail, SubscriberName},
     email_client::EmailClient,
+    startup::ApplicationBaseUrl,
 };
 
 #[derive(serde::Deserialize, Debug)]
@@ -26,7 +28,7 @@ impl TryFrom<FormData> for NewSubscriber {
 
 #[tracing::instrument(
   name = "Adding a new subscriber",
-  skip(form, db_pool, email_client),
+  skip(form, db_pool, email_client, app_base_url),
   fields(
       subscriber_email = %form.email,
       subscriber_name = %form.name
@@ -39,13 +41,14 @@ pub async fn subscribe(
     form: web::Form<FormData>,
     db_pool: web::Data<PgPool>,
     email_client: web::Data<EmailClient>,
+    app_base_url: web::Data<ApplicationBaseUrl>,
 ) -> HttpResponse {
     let new_subscriber: NewSubscriber = match form.0.try_into() {
         Ok(subscriber) => subscriber,
         Err(_) => return HttpResponse::BadRequest().finish(),
     };
 
-    if send_confirmation_email(&email_client, &new_subscriber)
+    if send_confirmation_email(&email_client, &new_subscriber, &app_base_url.0)
         .await
         .is_err()
     {
@@ -60,7 +63,7 @@ pub async fn subscribe(
 
 #[tracing::instrument(
     name = "Send a confirmation email to a new subscriber",
-    skip(email_client, new_subscriber)
+    skip(email_client, new_subscriber, app_base_url)
 )]
 ///
 /// Send an email confirmation to the new subscriber
@@ -68,8 +71,13 @@ pub async fn subscribe(
 pub async fn send_confirmation_email(
     email_client: &EmailClient,
     new_subscriber: &NewSubscriber,
+    app_base_url: &Url,
 ) -> Result<(), reqwest::Error> {
-    let confirmation_link = "https://there-is-no-such-domain.com/subscriptions/confirm";
+    let confirmation_link = format!(
+        "{}subscriptions/confirm?subscription_token={}",
+        app_base_url.as_str(),
+        "my token"
+    );
 
     let plain_body = format!(
         "Welcome to our newsletter!<br />\
