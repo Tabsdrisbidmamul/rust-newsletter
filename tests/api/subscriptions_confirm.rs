@@ -1,5 +1,5 @@
-use reqwest::Url;
 use rstest::rstest;
+use sqlx::query;
 use wiremock::{
     matchers::{method, path},
     Mock, ResponseTemplate,
@@ -40,29 +40,54 @@ async fn the_link_returned_by_subscribe_returns_a_200_if_called(
 
     app.post_subscriptions(body).await;
     let email_request = &app.email_server.received_requests().await.unwrap()[0];
-    let body: serde_json::Value = serde_json::from_slice(&email_request.body).unwrap();
-
-    let get_links = |s: &str| {
-        let links: Vec<_> = linkify::LinkFinder::new()
-            .links(s)
-            .filter(|l| *l.kind() == linkify::LinkKind::Url)
-            .collect();
-
-        assert_eq!(links.len(), 1);
-        links[0].as_str().to_owned()
-    };
-
-    let raw_confirmation_link = &get_links(&body["HtmlBody"].as_str().unwrap());
-    let mut confirmation_link = Url::parse(&raw_confirmation_link).unwrap();
-
-    // Make sure that the calls are going to localhost
-    assert_eq!(confirmation_link.host_str().unwrap(), "localhost");
-
-    confirmation_link.set_port(Some(app.port)).unwrap();
+    let confirmation_links = app.get_confirmation_links(&email_request);
 
     // Act
-    let response = reqwest::get(confirmation_link).await.unwrap();
+    let response = reqwest::get(confirmation_links.html).await.unwrap();
 
     // Assert
     assert_eq!(response.status().as_u16(), 200);
+}
+
+#[rstest]
+#[case("le guin", "guin@email.com")]
+#[case("ursula", "ursula_le_guin@gmail.com")]
+#[tokio::test]
+async fn clicking_on_the_confirmation_link_confirms_a_subscription(
+    #[case] name: String,
+    #[case] email: String,
+) {
+    // Arrange
+    let app = spawn_app().await;
+    let body = format_body(&name, &email);
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&app.email_server)
+        .await;
+
+    app.post_subscriptions(body).await;
+    let email_request = &app.email_server.received_requests().await.unwrap()[0];
+    let confirmation_links = app.get_confirmation_links(&email_request);
+
+    // Act
+    reqwest::get(confirmation_links.html)
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap();
+
+    // Assert
+    let saved = query!(
+        "SELECT email, name, status FROM subscriptions WHERE email = $1",
+        email
+    )
+    .fetch_one(&app.db_pool)
+    .await
+    .expect("Failed to fetch saved subscriptions");
+
+    assert_eq!(saved.email, email);
+    assert_eq!(saved.name, name);
+    assert_eq!(saved.status, "confirmed");
 }
