@@ -47,6 +47,7 @@ async fn create_unconfirmed_subscriber(app: &TestApp) {
         .expect(1)
         .mount_as_scoped(&app.email_server)
         .await;
+
     app.post_subscriptions(body.into())
         .await
         .error_for_status()
