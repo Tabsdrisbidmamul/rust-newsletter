@@ -18,7 +18,7 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "rt"] }
 serde = "1.0.115"
 config = { version = "0.13", default-features = false, features = ["yaml"] }
 sqlx = { version = "0.6", default-features = false, features = ["runtime-tokio-rustls", "macros", "postgres", "uuid", "chrono", "migrate", "offline"] }
-uuid = { version = "1", features = ["v4"] }
+uuid = { version = "1", features = ["v4", "serde"] }
 chrono = { version = "0.4.22", default-features = false, features = ["clock"] }
 log = "0.4.20"
 tracing = {version = "0.1.37", features = ["log"]}
@@ -40,6 +40,7 @@ urlencoding = "2"
 htmlescape = "0.3"
 actix-web-flash-messages = { version = "0.4", features = ["cookies"] }
 actix-session = {version = "0.7", features = ["redis-rs-tls-session"]}
+serde_json = "1"
 
 [dev-dependencies]
 rstest = "0.18.2"
