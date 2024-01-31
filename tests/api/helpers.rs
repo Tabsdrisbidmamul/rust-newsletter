@@ -121,7 +121,7 @@ impl TestApp {
             .unwrap()
     }
 
-    pub async fn get_admin_dashboard(&self) -> String {
+    pub async fn get_admin_dashboard_html(&self) -> String {
         self.api_client
             .get(format!("{}/admin/dashboard", self.address))
             .send()
@@ -130,6 +130,34 @@ impl TestApp {
             .text()
             .await
             .unwrap()
+    }
+
+    pub async fn get_admin_dashboard(&self) -> reqwest::Response {
+        self.api_client
+            .get(format!("{}/admin/dashboard", self.address))
+            .send()
+            .await
+            .expect("Failed to execute request")
+    }
+
+    pub async fn get_change_password_form(&self) -> reqwest::Response {
+        self.api_client
+            .get(format!("{}/admin/password", &self.address))
+            .send()
+            .await
+            .expect("Failed to execute request")
+    }
+
+    pub async fn post_change_password<Body>(&self, body: &Body) -> reqwest::Response
+    where
+        Body: serde::Serialize,
+    {
+        self.api_client
+            .post(format!("{}/admin/password", &self.address))
+            .form(body)
+            .send()
+            .await
+            .expect("Failed to execute request")
     }
 }
 
@@ -249,4 +277,9 @@ pub fn format_body<'a>(name: &str, email: &str) -> String {
     let _name = str::replace(&name, " ", "%20");
     let _email = str::replace(&email, "@", "%40");
     format!("name={}&email={}", _name, _email)
+}
+
+pub fn assert_is_redirect_to(response: &reqwest::Response, location: &str) {
+    assert_eq!(response.status().as_u16(), 303);
+    assert_eq!(response.headers().get("Location").unwrap(), location);
 }
