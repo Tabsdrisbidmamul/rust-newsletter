@@ -1,0 +1,4 @@
+{
+  "cSpell.words": ["splitn"],
+  "rust-analyzer.linkedProjects": ["./Cargo.toml"]
+}
