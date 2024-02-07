@@ -64,10 +64,5 @@ services:
     # Again, let's keep the bill lean
     num_nodes: 1
     size: db-s-dev-database
-<<<<<<< HEAD:spec.yaml
     # dev dbs don't have versions
     # version: "14"
-=======
-    # Postgres version - using the latest here
-    version: "14"
->>>>>>> master:spec.yaml.example
