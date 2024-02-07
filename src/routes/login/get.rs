@@ -1,13 +1,13 @@
 use actix_web::{http::header::ContentType, HttpResponse};
-use actix_web_flash_messages::{IncomingFlashMessages, Level};
+use actix_web_flash_messages::IncomingFlashMessages;
 use std::fmt::Write;
 
 #[tracing::instrument(name = "/GET Login form handler", skip(flash_messages))]
 pub async fn login_form(flash_messages: IncomingFlashMessages) -> HttpResponse {
-    let mut error_html = String::new();
+    let mut flash_message_html = String::new();
 
-    for m in flash_messages.iter().filter(|m| m.level() == Level::Error) {
-        writeln!(error_html, "<p><i>{}</i></p>", m.content()).unwrap();
+    for m in flash_messages.iter() {
+        writeln!(flash_message_html, "<p><i>{}</i></p>", m.content()).unwrap();
     }
 
     HttpResponse::Ok()
@@ -20,7 +20,7 @@ pub async fn login_form(flash_messages: IncomingFlashMessages) -> HttpResponse {
               <title>Login</title>
           </head>
           <body>
-              {error_html}
+              {flash_message_html}
               <form action="/login" method="post">
                   <label>Username
                       <input

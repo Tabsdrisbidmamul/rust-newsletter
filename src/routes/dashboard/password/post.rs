@@ -29,7 +29,7 @@ pub async fn change_password(
     }
 
     let user_id = user_id.unwrap();
-    let current_password = form.0.current_password.expose_secret();
+    let _current_password = form.0.current_password.expose_secret();
     let new_password = form.0.new_password.expose_secret();
     let new_password_check = form.0.new_password_check.expose_secret();
 

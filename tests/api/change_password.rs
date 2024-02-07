@@ -133,3 +133,14 @@ async fn new_password_is_too_short(#[case] password: String) {
 
     assert!(html_page.contains("<p><i>The password provided is too short, passwords must be greater than 12 characters</i></p>"));
 }
+
+#[tokio::test]
+async fn changing_password_works() {
+    // Arrange
+    let app = spawn_app().await;
+    let new_password = Uuid::new_v4().to_string();
+
+    // Act
+
+    // Assert
+}
