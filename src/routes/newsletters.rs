@@ -1,28 +1,19 @@
 use actix_web::http::header::HeaderMap;
 use actix_web::http::StatusCode;
-use actix_web::{web, HttpRequest, HttpResponse, ResponseError};
+use actix_web::{web, HttpResponse, ResponseError};
 use anyhow::Context;
 use base64::Engine;
 use reqwest::header::{self, HeaderValue};
 use secrecy::Secret;
 use sqlx::PgPool;
 
-use crate::authentication::{validate_credentials, AuthError, Credentials};
+use crate::authentication::Credentials;
 use crate::domain::SubscriberEmail;
 use crate::email_client::EmailClient;
 use crate::helpers::error_chain_fmt;
+use crate::session_state::TypedSession;
 
-#[derive(serde::Deserialize)]
-pub struct BodyData {
-    title: String,
-    content: Content,
-}
-
-#[derive(serde::Deserialize)]
-pub struct Content {
-    html: String,
-    text: String,
-}
+use super::NewsletterFormData;
 
 struct ConfirmedSubscriber {
     email: SubscriberEmail,
@@ -65,26 +56,23 @@ impl ResponseError for PublishError {
 
 #[tracing::instrument(
     name = "Publish newsletters to subscribers",
-    skip(body, pool, email_client, request),
+    skip(body, pool, email_client, session),
     fields(username=tracing::field::Empty, user_id=tracing::field::Empty)
 )]
 pub async fn publish_newsletter(
-    body: web::Json<BodyData>,
+    body: web::Form<NewsletterFormData>,
     pool: web::Data<PgPool>,
     email_client: web::Data<EmailClient>,
-    request: HttpRequest,
+    session: TypedSession,
 ) -> Result<HttpResponse, PublishError> {
-    let credentials = basic_authorisation(request.headers()).map_err(PublishError::AuthError)?;
+    let user_id = session
+        .get_user_id()
+        .map_err(|_| anyhow::anyhow!("Unauthorised user"))?;
 
-    tracing::Span::current().record("username", &tracing::field::display(&credentials.username));
-
-    let user_id = validate_credentials(credentials, &pool)
-        .await
-        .map_err(|e| match e {
-            AuthError::InvalidCredentials(_) => PublishError::AuthError(e.into()),
-            AuthError::UnexpectedError(_) => PublishError::UnexpectedError(e.into()),
-        })?;
-    tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
+    let user_id = user_id.ok_or(PublishError::AuthError(anyhow::anyhow!(
+        "Unauthorised user"
+    )))?;
+    tracing::Span::current().record("user_id", &tracing::field::display(user_id));
 
     let subscribers = get_confirmed_subscribers(&pool).await?;
 
@@ -95,8 +83,8 @@ pub async fn publish_newsletter(
                     .send_email(
                         &valid_subscriber.email,
                         &body.title,
-                        &body.content.html,
-                        &body.content.text,
+                        &body.html_text,
+                        &body.text,
                     )
                     .await
                     .with_context(|| {
