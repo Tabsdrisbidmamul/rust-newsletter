@@ -11,9 +11,8 @@ use crate::authentication::Credentials;
 use crate::domain::SubscriberEmail;
 use crate::email_client::EmailClient;
 use crate::helpers::error_chain_fmt;
+use crate::routes::NewsletterFormData;
 use crate::session_state::TypedSession;
-
-use super::NewsletterFormData;
 
 struct ConfirmedSubscriber {
     email: SubscriberEmail,

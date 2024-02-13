@@ -24,8 +24,8 @@ pub async fn newsletter_form(
     {msg_html}
     <form action="/admin/newsletters" method="post">
         <input type="text" name="title" placeholder="Enter a title"/>
-        <input type="text" name="text" placeholder="Enter the text version of the newsletter"/>
-        <input type="text" name="html_text" placeholder="Enter the html version of the newsletter"/>
+        <textarea type="text" name="text" placeholder="Enter the text version of the newsletter"></textarea>
+        <textarea type="text" name="html_text" placeholder="Enter the html version of the newsletter"></textarea>
 
         <button type="submit">Submit</button>
     </form>
