@@ -131,6 +131,7 @@ async fn get_confirmed_subscribers(
     Ok(confirmed_subscribers)
 }
 
+// Legacy basic auth
 #[tracing::instrument(
     name = "Basic authorisation: extract username and password",
     skip(headers)

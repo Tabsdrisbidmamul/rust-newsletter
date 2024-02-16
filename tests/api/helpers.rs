@@ -44,7 +44,10 @@ impl TestApp {
             .expect("Failed to execute request.")
     }
 
-    pub async fn post_newsletters_form_string(&self, body: serde_json::Value) -> reqwest::Response {
+    pub async fn post_newsletters_form_string(
+        &self,
+        body: &serde_json::Value,
+    ) -> reqwest::Response {
         self.api_client
             .post(&format!("{}/newsletters", &self.address))
             .form(&body)
@@ -225,6 +228,17 @@ impl TestUser {
         .execute(pool)
         .await
         .expect("Failed to create test users.");
+    }
+
+    pub async fn login(&self, app: &TestApp) {
+        // Act - p1 login
+        let login_body = serde_json::json!({
+          "username": &self.username,
+          "password": &self.password
+        });
+
+        let response = app.post_login(&login_body).await;
+        assert_is_redirect_to(&response, "/admin/dashboard");
     }
 }
 

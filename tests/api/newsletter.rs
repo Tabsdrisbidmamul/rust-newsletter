@@ -3,10 +3,10 @@ use wiremock::{
     Mock, ResponseTemplate,
 };
 
-use crate::helpers::{assert_is_redirect_to, spawn_app, ConfirmationLinks, TestApp};
+use crate::helpers::{spawn_app, ConfirmationLinks, TestApp};
 
 #[tokio::test]
-async fn logged_in_users_cannot_send_newsletters() {
+async fn unauthorised_users_cannot_send_newsletters() {
     // Arrange
     let app = spawn_app().await;
 
@@ -17,6 +17,7 @@ async fn logged_in_users_cannot_send_newsletters() {
           "title": "Newsletter title",
           "text": "Newsletter body as plain text",
           "html_text": "<p>Newsletter body as HTML</p>",
+          "idempotency_key": uuid::Uuid::new_v4().to_string()
         }))
         .send()
         .await
@@ -37,7 +38,7 @@ async fn newsletters_returns_400_for_invalid_data() {
     });
 
     let response = app
-        .post_newsletters_form_string(newsletter_request_body)
+        .post_newsletters_form_string(&newsletter_request_body)
         .await;
 
     // Assert
@@ -62,24 +63,18 @@ async fn newsletters_are_not_delivered_to_unconfirmed_subscribers() {
         .await;
 
     // Act - p1 login
-    let login_body = serde_json::json!({
-      "username": &app.test_user.username,
-      "password": &app.test_user.password
-    });
-
-    let response = app.post_login(&login_body).await;
-    assert_is_redirect_to(&response, "/admin/dashboard");
+    app.test_user.login(&app).await;
 
     // Act - p2 submit newsletter
     let newsletter_request_body = serde_json::json!({
         "title": "Newsletter title",
         "text": "Newsletter body as plain text",
         "html_text": "<p>Newsletter body as HTML</p>",
-
+        "idempotency_key": uuid::Uuid::new_v4().to_string()
     });
 
     let response = app
-        .post_newsletters_form_string(newsletter_request_body)
+        .post_newsletters_form_string(&newsletter_request_body)
         .await;
 
     // Assert
@@ -100,30 +95,25 @@ async fn newsletters_are_delivered_to_confirmed_subscribers() {
         .await;
 
     // Act - p1 login
-    let login_body = serde_json::json!({
-      "username": &app.test_user.username,
-      "password": &app.test_user.password
-    });
-
-    let response = app.post_login(&login_body).await;
-    assert_is_redirect_to(&response, "/admin/dashboard");
+    app.test_user.login(&app).await;
 
     // Act - p2 submit newsletter
     let newsletter_request_body = serde_json::json!({
       "title": "Newsletter title",
       "text": "Newsletter body as plain text",
       "html_text": "<p>Newsletter body as HTML</p>",
+      "idempotency_key": uuid::Uuid::new_v4().to_string()
     });
 
     let response = app
-        .post_newsletters_form_string(newsletter_request_body)
+        .post_newsletters_form_string(&newsletter_request_body)
         .await;
 
     // Assert
     assert_eq!(response.status().as_u16(), 200);
 }
 
-async fn create_unconfirmed_subscriber(app: &TestApp) -> ConfirmationLinks {
+pub async fn create_unconfirmed_subscriber(app: &TestApp) -> ConfirmationLinks {
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
 
     let _mock_guard = Mock::given(path("/email"))
@@ -150,7 +140,7 @@ async fn create_unconfirmed_subscriber(app: &TestApp) -> ConfirmationLinks {
     app.get_confirmation_links(&email_request)
 }
 
-async fn create_confirmed_subscriber(app: &TestApp) {
+pub async fn create_confirmed_subscriber(app: &TestApp) {
     let confirmation_links = create_unconfirmed_subscriber(app).await;
 
     reqwest::get(confirmation_links.html)
