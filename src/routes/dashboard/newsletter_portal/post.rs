@@ -3,15 +3,14 @@ use actix_web::{
     HttpResponse,
 };
 use actix_web_flash_messages::FlashMessage;
+use anyhow::Context;
 use sqlx::PgPool;
 
 use crate::{
     authentication::UserId,
-    email_client::EmailClient,
     helpers::{e400, e500, see_other},
     idempotency::{save_response, try_processing, IdempotencyKey, NextAction},
-    routes::publish_newsletter,
-    session_state::TypedSession,
+    routes::{enqueue_delivery_tasks, insert_newsletter_issue},
 };
 
 #[derive(serde::Deserialize)]
@@ -25,14 +24,19 @@ pub struct NewsletterFormData {
 pub async fn send_and_submit_newsletter(
     form: web::Form<NewsletterFormData>,
     pool: web::Data<PgPool>,
-    email_client: web::Data<EmailClient>,
-    session: TypedSession,
     user_id: ReqData<UserId>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let idempotency_key: IdempotencyKey =
-        form.0.idempotency_key.clone().try_into().map_err(e400)?;
+    let user_id = user_id.into_inner();
+    let NewsletterFormData {
+        title,
+        text,
+        html_text,
+        idempotency_key,
+    } = form.0;
 
-    let transaction = match try_processing(&pool, &idempotency_key, **user_id)
+    let idempotency_key: IdempotencyKey = idempotency_key.clone().try_into().map_err(e400)?;
+
+    let mut transaction = match try_processing(&pool, &idempotency_key, &user_id)
         .await
         .map_err(e500)?
     {
@@ -43,27 +47,27 @@ pub async fn send_and_submit_newsletter(
         }
     };
 
-    let result = publish_newsletter(form, pool.clone(), email_client, session)
+    let issue_id = insert_newsletter_issue(&mut transaction, &title, &text, &html_text)
+        .await
+        .context("Failed to store newsletter details")
+        .map_err(e500)?;
+
+    enqueue_delivery_tasks(&mut transaction, issue_id)
+        .await
+        .context("Failed to enqueue delivery tasks")
+        .map_err(e500)?;
+
+    let response = see_other("/admin/newsletter");
+
+    let response = save_response(transaction, &idempotency_key, &user_id, response)
         .await
         .map_err(e500)?;
 
-    let response = match result.status().as_u16() {
-        200 => {
-            success_message().send();
-            see_other("/admin/newsletters")
-        }
-        _ => {
-            FlashMessage::error("Something went wrong").send();
-            see_other("/admin/login")
-        }
-    };
+    success_message().send();
 
-    let response = save_response(transaction, &idempotency_key, **user_id, response)
-        .await
-        .map_err(e500)?;
     Ok(response)
 }
 
 fn success_message() -> FlashMessage {
-    FlashMessage::info("Newsletters were submitted successfully")
+    FlashMessage::info("Newsletters were submitted successfully\nEmails will go out shortly")
 }

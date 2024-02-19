@@ -26,7 +26,7 @@ pub enum NextAction {
 pub async fn try_processing(
     pool: &PgPool,
     idempotency_key: &IdempotencyKey,
-    user_id: Uuid,
+    user_id: &Uuid,
 ) -> Result<NextAction, anyhow::Error> {
     let mut transaction = pool.begin().await?;
 
@@ -61,7 +61,7 @@ pub async fn try_processing(
 pub async fn save_response(
     mut transaction: Transaction<'static, Postgres>,
     idempotency_key: &IdempotencyKey,
-    user_id: Uuid,
+    user_id: &Uuid,
     http_response: HttpResponse,
 ) -> Result<HttpResponse, anyhow::Error> {
     let (response_head, body) = http_response.into_parts();
@@ -108,7 +108,7 @@ pub async fn save_response(
 pub async fn get_saved_response(
     pool: &PgPool,
     idempotency_key: &IdempotencyKey,
-    user_id: Uuid,
+    user_id: &Uuid,
 ) -> Result<Option<HttpResponse>, anyhow::Error> {
     let saved_response = sqlx::query!(
         r#"

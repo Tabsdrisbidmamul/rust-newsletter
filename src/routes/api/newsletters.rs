@@ -5,7 +5,8 @@ use anyhow::Context;
 use base64::Engine;
 use reqwest::header::{self, HeaderValue};
 use secrecy::Secret;
-use sqlx::PgPool;
+use sqlx::{PgPool, Postgres, Transaction};
+use uuid::Uuid;
 
 use crate::authentication::Credentials;
 use crate::domain::SubscriberEmail;
@@ -53,6 +54,66 @@ impl ResponseError for PublishError {
     }
 }
 
+#[tracing::instrument(
+  name = "Insert newsletter issue"
+  skip(transaction, title, text_content, html_content)
+)]
+pub async fn insert_newsletter_issue(
+    transaction: &mut Transaction<'_, Postgres>,
+    title: &str,
+    text_content: &str,
+    html_content: &str,
+) -> Result<Uuid, sqlx::Error> {
+    let newsletter_issue_id = Uuid::new_v4();
+    sqlx::query!(
+        r#"
+        INSERT INTO newsletter_issues (
+          newsletter_issue_id,
+          title,
+          text_context,
+          html_content,
+          published_at
+        )
+        VALUES ($1, $2, $3, $4, now())
+      "#,
+        newsletter_issue_id,
+        title,
+        text_content,
+        html_content
+    )
+    .execute(transaction)
+    .await?;
+
+    Ok(newsletter_issue_id)
+}
+
+#[tracing::instrument(
+  name = "Enqueue delivery tasks"
+  skip()
+)]
+pub async fn enqueue_delivery_tasks(
+    transaction: &mut Transaction<'_, Postgres>,
+    newsletter_issue_id: Uuid,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        r#"
+      INSERT INTO issue_delivery_queue (
+        newsletter_issue_id,
+        subscriber_email
+      )
+      SELECT $1, email
+      FROM subscriptions
+      WHERE status = 'confirmed'
+    "#,
+        newsletter_issue_id
+    )
+    .execute(transaction)
+    .await?;
+
+    Ok(())
+}
+
+// Legacy no longer used
 #[tracing::instrument(
     name = "Publish newsletters to subscribers",
     skip(body, pool, email_client, session),
@@ -106,6 +167,7 @@ pub async fn publish_newsletter(
     Ok(HttpResponse::Ok().finish())
 }
 
+// Legacy no longer used
 #[tracing::instrument(name = "Get confirmed subscribers", skip(pool))]
 async fn get_confirmed_subscribers(
     pool: &PgPool,
