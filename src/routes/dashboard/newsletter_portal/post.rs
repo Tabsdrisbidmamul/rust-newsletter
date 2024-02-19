@@ -9,7 +9,7 @@ use crate::{
     authentication::UserId,
     email_client::EmailClient,
     helpers::{e400, e500, see_other},
-    idempotency::{get_saved_response, save_response, IdempotencyKey},
+    idempotency::{save_response, try_processing, IdempotencyKey, NextAction},
     routes::publish_newsletter,
     session_state::TypedSession,
 };
@@ -32,14 +32,16 @@ pub async fn send_and_submit_newsletter(
     let idempotency_key: IdempotencyKey =
         form.0.idempotency_key.clone().try_into().map_err(e400)?;
 
-    let saved_response = get_saved_response(&pool, &idempotency_key, **user_id)
+    let transaction = match try_processing(&pool, &idempotency_key, **user_id)
         .await
-        .map_err(e500)?;
-
-    if !saved_response.is_none() {
-        FlashMessage::info("Newsletters were submitted successfully").send();
-        return Ok(saved_response.unwrap());
-    }
+        .map_err(e500)?
+    {
+        NextAction::StartProcessing(t) => t,
+        NextAction::ReturnSavedResponse(saved_response) => {
+            success_message().send();
+            return Ok(saved_response);
+        }
+    };
 
     let result = publish_newsletter(form, pool.clone(), email_client, session)
         .await
@@ -47,7 +49,7 @@ pub async fn send_and_submit_newsletter(
 
     let response = match result.status().as_u16() {
         200 => {
-            FlashMessage::info("Newsletters were submitted successfully").send();
+            success_message().send();
             see_other("/admin/newsletters")
         }
         _ => {
@@ -56,8 +58,12 @@ pub async fn send_and_submit_newsletter(
         }
     };
 
-    let response = save_response(&pool, &idempotency_key, **user_id, response)
+    let response = save_response(transaction, &idempotency_key, **user_id, response)
         .await
         .map_err(e500)?;
     Ok(response)
+}
+
+fn success_message() -> FlashMessage {
+    FlashMessage::info("Newsletters were submitted successfully")
 }

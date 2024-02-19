@@ -1,3 +1,7 @@
+use fake::{
+    faker::{internet::en::SafeEmail, name::en::Name},
+    Fake,
+};
 use wiremock::{
     matchers::{any, method, path},
     Mock, ResponseTemplate,
@@ -114,7 +118,13 @@ async fn newsletters_are_delivered_to_confirmed_subscribers() {
 }
 
 pub async fn create_unconfirmed_subscriber(app: &TestApp) -> ConfirmationLinks {
-    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+    let name: String = Name().fake();
+    let email: String = SafeEmail().fake();
+    let body = serde_urlencoded::to_string(&serde_json::json!({
+      "name": name,
+      "email": email
+    }))
+    .unwrap();
 
     let _mock_guard = Mock::given(path("/email"))
         .and(method("POST"))
