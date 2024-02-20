@@ -57,7 +57,7 @@ pub async fn send_and_submit_newsletter(
         .context("Failed to enqueue delivery tasks")
         .map_err(e500)?;
 
-    let response = see_other("/admin/newsletter");
+    let response = see_other("/admin/newsletters");
 
     let response = save_response(transaction, &idempotency_key, &user_id, response)
         .await
@@ -69,5 +69,5 @@ pub async fn send_and_submit_newsletter(
 }
 
 fn success_message() -> FlashMessage {
-    FlashMessage::info("Newsletters were submitted successfully\nEmails will go out shortly")
+    FlashMessage::info("Newsletters were submitted successfully")
 }

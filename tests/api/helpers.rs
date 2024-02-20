@@ -5,6 +5,8 @@ use sqlx::{Connection, Executor, PgConnection, PgPool};
 use uuid::Uuid;
 use wiremock::MockServer;
 use zero_to_production::configuration::{get_configuration, DatabaseSettings};
+use zero_to_production::email_client::EmailClient;
+use zero_to_production::issue_delivery_worker::{try_execute_task, ExecutionOutcome};
 use zero_to_production::startup::{get_connection_pool, Application};
 use zero_to_production::telemetry::{get_subscriber, init_subscriber};
 
@@ -28,6 +30,7 @@ pub struct TestApp {
     pub email_server: MockServer,
     pub test_user: TestUser,
     pub api_client: reqwest::Client,
+    pub email_client: EmailClient,
 }
 
 pub struct ConfirmationLinks {
@@ -36,6 +39,18 @@ pub struct ConfirmationLinks {
 }
 
 impl TestApp {
+    pub async fn dispatch_all_pending_emails(&self) {
+        loop {
+            if let ExecutionOutcome::EmptyQueue =
+                try_execute_task(&self.db_pool, &self.email_client)
+                    .await
+                    .unwrap()
+            {
+                break;
+            }
+        }
+    }
+
     pub async fn get_health_check(&self) -> reqwest::Response {
         self.api_client
             .get(format!("{}/health_check", &self.address))
@@ -282,6 +297,7 @@ pub async fn spawn_app() -> TestApp {
         email_server,
         test_user: TestUser::generate(),
         api_client,
+        email_client: configuration.email_client.client(),
     };
     test_app.test_user.store(&test_app.db_pool).await;
 

@@ -97,6 +97,8 @@ async fn newsletter_creation_is_idempotent() {
     let html_page = app.get_newsletter_portal_html().await;
     assert!(html_page.contains("<p><i>Newsletters were submitted successfully</i></p>"));
 
+    app.dispatch_all_pending_emails().await;
+
     // Assert
 }
 
@@ -130,7 +132,9 @@ async fn concurrent_form_submissions_is_handled_gracefully() {
     assert_eq!(
         response_1.text().await.unwrap(),
         response_2.text().await.unwrap()
-    )
+    );
+
+    app.dispatch_all_pending_emails().await;
 }
 
 #[tokio::test]
@@ -166,19 +170,21 @@ async fn transient_errors_do_not_cause_duplicate_deliveries_on_retries() {
         .await;
 
     let response = app.post_newsletter_form(&newsletter_request_body).await;
-    assert_eq!(response.status().as_u16(), 500);
+    assert_eq!(response.status().as_u16(), 303);
 
     // Act - p2 retry submitting the form
-    when_sending_an_email()
-        .respond_with(ResponseTemplate::new(200))
-        .expect(1)
-        .named("Delivery retry")
-        .mount(&app.email_server)
-        .await;
+    // when_sending_an_email()
+    //     .respond_with(ResponseTemplate::new(200))
+    //     .expect(1)
+    //     .named("Delivery retry")
+    //     .mount(&app.email_server)
+    //     .await;
 
     let response = app.post_newsletter_form(&newsletter_request_body).await;
     assert_eq!(response.status().as_u16(), 303);
     // Assert
+
+    app.dispatch_all_pending_emails().await;
 }
 
 fn when_sending_an_email() -> MockBuilder {

@@ -34,24 +34,7 @@ impl Application {
 
         let app_base_url = config.application.base_url().expect("Invalid app base url");
 
-        let email_base_url = config
-            .email_client
-            .base_url_transformed()
-            .expect("Invalid email base url");
-
-        let sender_email = config
-            .email_client
-            .sender()
-            .expect("Invalid sender email address.");
-
-        let timeout = config.email_client.timeout();
-
-        let email_client = EmailClient::new(
-            email_base_url,
-            sender_email,
-            config.email_client.authroisatation_token,
-            timeout,
-        );
+        let email_client = config.email_client.client();
 
         let address = format!("{}:{}", config.application.host, config.application.port);
         let listener = TcpListener::bind(address)?;

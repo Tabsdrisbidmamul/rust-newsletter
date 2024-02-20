@@ -70,7 +70,7 @@ pub async fn insert_newsletter_issue(
         INSERT INTO newsletter_issues (
           newsletter_issue_id,
           title,
-          text_context,
+          text_content,
           html_content,
           published_at
         )
